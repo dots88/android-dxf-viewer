@@ -1,73 +1,105 @@
 package com.dots.dxfviewer
 
 import android.annotation.SuppressLint
-import android.content.ContentResolver
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
 class MainActivity : ComponentActivity() {
-	@SuppressLint("SetJavaScriptEnabled")
-	override fun onCreate(savedInstanceState: Bundle?) {
-		super.onCreate(savedInstanceState)
-		setContent {
-			MaterialTheme {
-				Surface(Modifier.fillMaxSize()) {
-					val context = LocalContext.current
-					var webView by remember { mutableStateOf<WebView?>(null) }
-					val openDoc = rememberLauncherForActivityResult(
-						contract = ActivityResultContracts.OpenDocument()
-					) { uri: Uri? ->
-						uri?.let {
-							val dxfText = readAllText(contentResolver, it)
-							val base64 = Base64.encodeToString(dxfText.toByteArray(), Base64.NO_WRAP)
-							webView?.evaluateJavascript("window.loadDxfBase64('" + base64 + "')", null)
-						}
-					}
 
-					Column(Modifier.fillMaxSize()) {
-						TopAppBar(
-							title = { Text("DXF Viewer") },
-							actions = {
-								TextButton(onClick = {
-									openDoc.launch(arrayOf("*/*"))
-								}) { Text("Open DXF") }
-							}
-						)
-						AndroidView(
-							modifier = Modifier.fillMaxSize(),
-							factory = { ctx ->
-								WebView(ctx).apply {
-									settings.javaScriptEnabled = true
-									settings.cacheMode = WebSettings.LOAD_NO_CACHE
-									settings.domStorageEnabled = true
-									loadUrl("file:///android_asset/dxfviewer/index.html")
-									webView = this
-								}
-							}
-						)
-					}
-				}
-			}
-		}
-	}
+    private var webViewRef: WebView? = null
+    private var webViewReady = false
 
-	private fun readAllText(contentResolver: ContentResolver, uri: Uri): String {
-		contentResolver.openInputStream(uri)?.use { input ->
-			return input.bufferedReader().readText()
-		}
-		return ""
-	}
+    // URI waiting to be loaded once the WebView page has finished loading
+    private var pendingUri: Uri? = null
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // If launched via a VIEW intent (e.g. from a file manager), queue the URI
+        pendingUri = intent?.data
+
+        setContent {
+            MaterialTheme {
+                Surface(Modifier.fillMaxSize()) {
+
+                    val openDoc = remember {
+                        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                            uri?.let { loadDxfUri(it) }
+                        }
+                    }
+
+                    Column(Modifier.fillMaxSize()) {
+                        TopAppBar(
+                            title = { Text("DXF Viewer") },
+                            actions = {
+                                TextButton(onClick = { openDoc.launch(arrayOf("*/*")) }) {
+                                    Text("Open")
+                                }
+                            }
+                        )
+
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { ctx ->
+                                WebView(ctx).also { wv ->
+                                    wv.settings.apply {
+                                        javaScriptEnabled  = true
+                                        domStorageEnabled  = true
+                                        cacheMode          = WebSettings.LOAD_NO_CACHE
+                                        allowFileAccess    = true
+                                        @Suppress("DEPRECATION")
+                                        allowUniversalAccessFromFileURLs = true
+                                    }
+                                    wv.webViewClient = object : WebViewClient() {
+                                        override fun onPageFinished(view: WebView, url: String) {
+                                            webViewReady = true
+                                            pendingUri?.let { uri ->
+                                                pendingUri = null
+                                                loadDxfUri(uri)
+                                            }
+                                        }
+                                    }
+                                    webViewRef = wv
+                                    wv.loadUrl("file:///android_asset/dxfviewer/index.html")
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadDxfUri(uri: Uri) {
+        if (!webViewReady) {
+            pendingUri = uri
+            return
+        }
+        try {
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return
+            val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            webViewRef?.evaluateJavascript("window.loadDxfBase64('$b64')", null)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

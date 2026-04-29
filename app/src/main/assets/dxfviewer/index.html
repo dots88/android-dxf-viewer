@@ -1,26 +1,77 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>DXF Viewer</title>
-	<style>
-		body { margin: 0; font-family: sans-serif; color: #eaeaea; background: #121212; }
-		#toolbar { display:flex; gap:8px; align-items:center; padding:8px; border-bottom:1px solid #333; }
-		#layers { display:flex; flex-wrap: wrap; gap:8px; }
-		#canvas { display:block; width:100vw; height: calc(100vh - 56px); background:#1a1a1a; }
-		.badge { border:1px solid #444; border-radius:4px; padding:2px 6px; }
-	</style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>DXF Viewer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; color: #eaeaea; background: #121212; overflow: hidden; }
+
+        #toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            padding: 8px;
+            background: #1e1e1e;
+            border-bottom: 1px solid #333;
+        }
+
+        #toolbar button {
+            background: #2e2e2e;
+            color: #eee;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 5px 12px;
+            font-size: 15px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #toolbar button:active { background: #444; }
+
+        #info {
+            font-size: 12px;
+            color: #aaa;
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #layers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+        }
+        #layers label {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
 </head>
 <body>
-	<div id="toolbar">
-		<button id="zoomIn">＋</button>
-		<button id="zoomOut">－</button>
-		<button id="reset">Reset</button>
-		<div id="info" class="badge">No file</div>
-	</div>
-	<canvas id="canvas"></canvas>
-	<div id="layers"></div>
-	<script src="viewer.js"></script>
+    <div id="toolbar">
+        <button id="zoomIn">+</button>
+        <button id="zoomOut">−</button>
+        <button id="reset">Fit</button>
+        <span id="info">No file loaded</span>
+        <div id="layers"></div>
+    </div>
+    <canvas id="canvas"></canvas>
+    <script src="viewer.js"></script>
 </body>
 </html>
